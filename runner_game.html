@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>러너 게임</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: sans-serif;
+    color: #fff;
+  }
+  h1 { margin-bottom: 10px; font-size: 24px; letter-spacing: 2px; color: #e94560; }
+  #info { margin-bottom: 10px; font-size: 14px; color: #aaa; }
+  canvas {
+    border: 2px solid #e94560;
+    border-radius: 8px;
+    display: block;
+  }
+  #score-board {
+    margin-top: 12px;
+    font-size: 18px;
+    display: flex;
+    gap: 40px;
+  }
+  #score-board span { color: #e94560; font-weight: bold; }
+  #message {
+    margin-top: 14px;
+    font-size: 16px;
+    color: #ffd700;
+    height: 24px;
+  }
+</style>
+</head>
+<body>
+
+<h1>🏃 러너 게임</h1>
+<div id="info">← → 방향키로 이동 &nbsp;|&nbsp; 스페이스바로 시작/재시작</div>
+<canvas id="game" width="480" height="600"></canvas>
+<div id="score-board">점수: <span id="score">0</span> &nbsp;&nbsp; 최고기록: <span id="best">0</span></div>
+<div id="message">스페이스바를 눌러 시작!</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const LANE_COUNT = 5;
+const LANE_W = W / LANE_COUNT;
+const PLAYER_W = 36, PLAYER_H = 36;
+const OBS_W = 40, OBS_H = 40;
+
+let state = 'idle'; // idle, playing, dead
+let score = 0, best = 0, frame = 0;
+let playerLane = 2;
+let obstacles = [];
+let particles = [];
+let speed = 4;
+let spawnInterval = 80;
+let lastSpawn = 0;
+let moveLeft = false, moveRight = false;
+let playerX = 0;
+let targetX = 0;
+
+const COLORS = ['#e94560', '#f5a623', '#7ed321', '#4a90e2', '#bd10e0'];
+const OBS_SHAPES = ['🚧', '🪨', '🔥', '💣', '⚡'];
+
+function laneX(lane) {
+  return lane * LANE_W + LANE_W / 2;
+}
+
+function reset() {
+  score = 0;
+  frame = 0;
+  speed = 4;
+  spawnInterval = 80;
+  lastSpawn = 0;
+  playerLane = 2;
+  playerX = laneX(2);
+  targetX = playerX;
+  obstacles = [];
+  particles = [];
+  moveLeft = false;
+  moveRight = false;
+}
+
+function spawnObstacle() {
+  const lane = Math.floor(Math.random() * LANE_COUNT);
+  const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+  const shape = OBS_SHAPES[Math.floor(Math.random() * OBS_SHAPES.length)];
+  obstacles.push({ lane, x: laneX(lane), y: -OBS_H, color, shape });
+}
+
+function spawnParticles(x, y, color) {
+  for (let i = 0; i < 18; i++) {
+    const angle = (Math.PI * 2 / 18) * i;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * (2 + Math.random() * 3),
+      vy: Math.sin(angle) * (2 + Math.random() * 3),
+      life: 1,
+      color
+    });
+  }
+}
+
+function drawBackground() {
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, W, H);
+
+  // 레인 구분선
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < LANE_COUNT; i++) {
+    ctx.beginPath();
+    ctx.setLineDash([20, 20]);
+    ctx.moveTo(i * LANE_W, 0);
+    ctx.lineTo(i * LANE_W, H);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // 도로 느낌 테두리
+  ctx.strokeStyle = 'rgba(233,69,96,0.3)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(0, 0, W, H);
+}
+
+function drawPlayer() {
+  const px = playerX;
+  const py = H - 80;
+
+  // 그림자
+  ctx.fillStyle = 'rgba(233,69,96,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(px, py + PLAYER_H / 2 + 4, PLAYER_W / 2, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 캐릭터 몸통
+  ctx.fillStyle = '#e94560';
+  ctx.beginPath();
+  ctx.roundRect(px - PLAYER_W / 2, py - PLAYER_H / 2, PLAYER_W, PLAYER_H, 8);
+  ctx.fill();
+
+  // 캐릭터 이모지
+  ctx.font = '26px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🏃', px, py);
+}
+
+function drawObstacles() {
+  obstacles.forEach(obs => {
+    ctx.font = '32px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(obs.shape, obs.x, obs.y);
+  });
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawHUD() {
+  // 점수
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.roundRect(10, 10, 130, 36, 8);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('점수: ' + score, 20, 28);
+
+  // 속도 게이지
+  const lvl = Math.floor((speed - 4) / 1) + 1;
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.roundRect(W - 130, 10, 120, 36, 8);
+  ctx.fill();
+  ctx.fillStyle = '#ffd700';
+  ctx.textAlign = 'right';
+  ctx.fillText('레벨 ' + lvl, W - 20, 28);
+}
+
+function drawGameOver() {
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#e94560';
+  ctx.font = 'bold 42px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('GAME OVER', W / 2, H / 2 - 50);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '22px sans-serif';
+  ctx.fillText('점수: ' + score, W / 2, H / 2 + 10);
+
+  ctx.fillStyle = '#ffd700';
+  ctx.font = '18px sans-serif';
+  ctx.fillText('최고기록: ' + best, W / 2, H / 2 + 44);
+
+  ctx.fillStyle = '#aaa';
+  ctx.font = '15px sans-serif';
+  ctx.fillText('스페이스바로 다시 시작', W / 2, H / 2 + 84);
+}
+
+function checkCollision() {
+  const px = playerX;
+  const py = H - 80;
+  for (let obs of obstacles) {
+    const dx = Math.abs(obs.x - px);
+    const dy = Math.abs(obs.y - py);
+    if (dx < (PLAYER_W / 2 + OBS_W / 2 - 8) && dy < (PLAYER_H / 2 + OBS_H / 2 - 8)) {
+      return obs;
+    }
+  }
+  return null;
+}
+
+function update() {
+  if (state !== 'playing') return;
+
+  frame++;
+  score = Math.floor(frame / 6);
+  document.getElementById('score').textContent = score;
+
+  // 난이도 증가
+  speed = 4 + Math.floor(frame / 300) * 0.8;
+  spawnInterval = Math.max(35, 80 - Math.floor(frame / 200) * 5);
+
+  // 플레이어 부드럽게 이동
+  playerX += (targetX - playerX) * 0.18;
+
+  // 장애물 생성
+  if (frame - lastSpawn > spawnInterval) {
+    spawnObstacle();
+    lastSpawn = frame;
+  }
+
+  // 장애물 이동
+  obstacles.forEach(obs => { obs.y += speed; });
+  obstacles = obstacles.filter(obs => obs.y < H + OBS_H);
+
+  // 파티클 업데이트
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= 0.04;
+  });
+  particles = particles.filter(p => p.life > 0);
+
+  // 충돌 감지
+  const hit = checkCollision();
+  if (hit) {
+    spawnParticles(playerX, H - 80, '#e94560');
+    if (score > best) {
+      best = score;
+      document.getElementById('best').textContent = best;
+    }
+    state = 'dead';
+    document.getElementById('message').textContent = '💥 게임 오버! 스페이스바로 재시작';
+  }
+}
+
+function draw() {
+  drawBackground();
+  drawObstacles();
+  drawParticles();
+  if (state !== 'idle') drawPlayer();
+  drawHUD();
+  if (state === 'dead') drawGameOver();
+  if (state === 'idle') {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('스페이스바로 시작!', W / 2, H / 2);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '16px sans-serif';
+    ctx.fillText('← → 방향키로 장애물을 피하세요', W / 2, H / 2 + 44);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') {
+    if (state === 'idle' || state === 'dead') {
+      reset();
+      state = 'playing';
+      document.getElementById('message').textContent = '장애물을 피하세요!';
+    }
+    e.preventDefault();
+  }
+  if (state !== 'playing') return;
+  if (e.code === 'ArrowLeft') {
+    if (playerLane > 0) {
+      playerLane--;
+      targetX = laneX(playerLane);
+    }
+    e.preventDefault();
+  }
+  if (e.code === 'ArrowRight') {
+    if (playerLane < LANE_COUNT - 1) {
+      playerLane++;
+      targetX = laneX(playerLane);
+    }
+    e.preventDefault();
+  }
+});
+
+loop();
+</script>
+</body>
+</html>
