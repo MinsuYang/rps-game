@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🏊 수영하는 진순이</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+body {
+  background:#001828;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  min-height:100vh;
+  font-family:'맑은 고딕','Apple SD Gothic Neo',sans-serif;
+  overflow:hidden;
+  user-select:none;
+}
+
+/* ══ 인트로 ══ */
+#intro {
+  position:fixed; inset:0; z-index:200;
+  background:linear-gradient(180deg,#87CEEB 0%,#87CEEB 22%,#006994 22%,#003d5c 100%);
+  display:flex; flex-direction:column; align-items:center;
+  padding:16px; overflow-y:auto;
+}
+#intro h1 {
+  font-size:clamp(22px,6vw,34px);
+  color:#fff; text-shadow:0 2px 8px rgba(0,0,0,.4);
+  margin:10px 0 2px; text-align:center;
+}
+#intro .subtitle { color:#b8e8ff; font-size:13px; margin-bottom:14px; }
+
+.card {
+  background:rgba(255,255,255,.13);
+  border:1px solid rgba(255,255,255,.28);
+  border-radius:16px; padding:13px 16px;
+  width:100%; max-width:370px; margin-bottom:11px; color:#fff;
+}
+.card h3 { font-size:14px; margin-bottom:7px; color:#ffe082; }
+.card p, .card li { font-size:12.5px; line-height:1.7; color:#dff0ff; }
+.card ul { padding-left:16px; }
+.card .row { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+.card .badge {
+  background:rgba(255,255,255,.2); border-radius:8px;
+  padding:4px 8px; font-size:20px; min-width:40px; text-align:center;
+}
+.card .badge.buff { background:rgba(255,224,100,.25); }
+
+#startBtn {
+  width:100%; max-width:370px;
+  padding:16px; margin-top:4px; margin-bottom:20px;
+  background:linear-gradient(135deg,#ff6ec7,#ff9f45);
+  border:none; border-radius:20px;
+  font-size:18px; font-weight:bold; color:#fff;
+  cursor:pointer; letter-spacing:1px;
+  box-shadow:0 4px 18px rgba(255,110,199,.5);
+}
+
+/* ══ 게임 ══ */
+#gameWrap {
+  display:none; flex-direction:column; align-items:center;
+  width:100%; max-width:420px;
+}
+canvas { display:block; width:100%; max-width:420px; touch-action:none; }
+
+/* 점수 HUD */
+#hud {
+  display:flex; justify-content:space-between; align-items:center;
+  width:100%; max-width:420px;
+  padding:6px 14px; background:rgba(0,0,0,.45);
+  color:#fff; font-size:14px;
+}
+#hud span { font-weight:bold; color:#ffe082; }
+
+/* 탭 버튼 */
+#tapBtn {
+  width:100%; max-width:420px;
+  padding:18px; margin-top:0;
+  background:linear-gradient(135deg,#1e88e5,#00acc1);
+  border:none; border-radius:0 0 18px 18px;
+  font-size:20px; font-weight:bold; color:#fff;
+  cursor:pointer; letter-spacing:1px;
+  box-shadow:0 4px 16px rgba(0,150,220,.5);
+  active: transform:scale(.97);
+}
+#tapBtn:active { transform:scale(.97); }
+
+/* 게임오버 오버레이 */
+#over {
+  display:none; position:fixed; inset:0; z-index:300;
+  background:rgba(0,0,0,.75);
+  flex-direction:column; align-items:center; justify-content:center;
+}
+#over .panel {
+  background:linear-gradient(160deg,#0d3b5e,#0a2540);
+  border:2px solid rgba(255,255,255,.2);
+  border-radius:24px; padding:32px 40px;
+  text-align:center; color:#fff; min-width:260px;
+}
+#over h2 { font-size:28px; color:#ff6ec7; margin-bottom:8px; }
+#over .score-label { color:#aaa; font-size:13px; margin-bottom:4px; }
+#over .score-val { font-size:40px; font-weight:bold; color:#ffe082; margin-bottom:4px; }
+#over .best-val { font-size:14px; color:#7ecfff; margin-bottom:22px; }
+#over button {
+  padding:13px 36px; background:linear-gradient(135deg,#ff6ec7,#ff9f45);
+  border:none; border-radius:14px;
+  font-size:16px; font-weight:bold; color:#fff; cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- 인트로 화면 -->
+<div id="intro">
+  <h1>🏊‍♀️ 수영하는 진순이</h1>
+  <p class="subtitle">물속을 헤엄치는 진순이를 살려주세요!</p>
+
+  <div class="card">
+    <h3>🕹️ 조작 방법</h3>
+    <ul>
+      <li>진순이는 <b>자동으로 가라앉아요</b></li>
+      <li><b>탭(터치) / 스페이스바</b>를 누르면 살짝 위로 튀어올라요</li>
+      <li>바닥에 닿거나 장애물에 부딪히면 <b>게임 오버!</b></li>
+      <li>수면은 뚫을 수 없어요 🌊</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>🚧 장애물</h3>
+    <div class="row"><span class="badge">🦈</span><p>상어 - 피하세요!</p></div>
+    <div class="row"><span class="badge">🪨</span><p>돌덩이 - 묵직하게 날아와요</p></div>
+    <div class="row"><span class="badge">🪼</span><p>해파리 - 위아래로 움직여요</p></div>
+    <div class="row"><span class="badge">🐙</span><p>문어 - 빠르게 돌진해요</p></div>
+  </div>
+
+  <div class="card">
+    <h3>⭐ 버프 아이템</h3>
+    <div class="row">
+      <span class="badge buff" id="pigBadge">🐷</span>
+      <div>
+        <p><b style="color:#ffe082">돼지 진순이 버프!</b></p>
+        <p>먹으면 3초간 무적 + 터보 수영!</p>
+        <p>장애물 무시 & 거리 2배 증가</p>
+      </div>
+    </div>
+  </div>
+
+  <button id="startBtn" onclick="startGame()">🏊‍♀️ 게임 시작!</button>
+</div>
+
+<!-- 게임 화면 -->
+<div id="gameWrap">
+  <div id="hud">
+    <div>🏊 거리: <span id="scoreDisp">0</span>m</div>
+    <div>🏆 최고: <span id="bestDisp">0</span>m</div>
+    <div id="buffTimer" style="color:#ffe082;display:none">⭐ <span id="buffSec">3</span>s</div>
+  </div>
+  <canvas id="c"></canvas>
+  <button id="tapBtn" ontouchstart="doTap(event)" onclick="doTap(event)">
+    👆 TAP! (터치 또는 스페이스바)
+  </button>
+</div>
+
+<!-- 게임오버 -->
+<div id="over">
+  <div class="panel">
+    <h2>🌊 빠져버렸어!</h2>
+    <div class="score-label">수영한 거리</div>
+    <div class="score-val" id="overScore">0m</div>
+    <div class="best-val" id="overBest">최고기록: 0m</div>
+    <button onclick="restartGame()">🔄 다시 도전!</button>
+  </div>
+</div>
+
+<script>
+// ── 돼지 이미지 ──────────────────────────────────────────────
+const pigImg = new Image();
+pigImg.src = 'data:image/jpeg;base64,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';
+
+// ── 캔버스 설정 ──────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const CW = 400, CH = 520;
+canvas.width = CW; canvas.height = CH;
+
+// ── 게임 상수 ─────────────────────────────────────────────────
+const SKY_H = 60;       // 하늘 높이
+const SEA_TOP = SKY_H;  // 수면 y
+const SEA_BOT = CH;     // 바닥 y
+const SEA_H = CH - SKY_H;
+
+const GRAVITY = 0.22;
+const JUMP_VEL = -5.2;
+const BASE_SPEED = 2.8;
+
+// ── 게임 상태 ─────────────────────────────────────────────────
+let state = 'idle'; // idle | playing | dead
+let score = 0, best = 0, frame = 0;
+let raf = null;
+
+// 진순이
+let jy, jvy, jAnimFrame, jLegPhase;
+
+// 배경 스크롤
+let bgX = 0, bgX2 = CW;
+
+// 장애물
+let obstacles = [];
+let lastObs = 0;
+
+// 버프
+let buffActive = false;
+let buffTimer = 0;
+let buffFlashFrame = 0;
+
+// 파티클
+let particles = [];
+
+// 배경 버블
+let bubbles = [];
+
+// 웨이브 오프셋
+let waveOff = 0;
+
+// ── 배경 이미지 (그라디언트로 대체) ──────────────────────────
+// 수중 배경 요소
+function initBubbles() {
+  bubbles = [];
+  for (let i = 0; i < 18; i++) {
+    bubbles.push({
+      x: Math.random() * CW,
+      y: SEA_TOP + Math.random() * SEA_H,
+      r: 2 + Math.random() * 5,
+      spd: 0.3 + Math.random() * 0.6
+    });
+  }
+}
+
+// ── 장애물 타입 ───────────────────────────────────────────────
+const OBS_TYPES = [
+  { emoji:'🦈', w:52, h:40, spd:1.2, wob:0, name:'shark' },
+  { emoji:'🪨', w:44, h:44, spd:0.9, wob:0, name:'rock' },
+  { emoji:'🪼', w:38, h:42, spd:0.7, wob:1.4, name:'jelly' },
+  { emoji:'🐙', w:46, h:44, spd:1.5, wob:0, name:'octo' },
+];
+
+function spawnObs() {
+  // 30% 확률로 돼지 버프
+  const isBuff = Math.random() < 0.18;
+  if (isBuff) {
+    const lane = SEA_TOP + 40 + Math.random() * (SEA_H - 100);
+    obstacles.push({
+      type:'buff', x:CW + 30, y:lane, w:50, h:50,
+      spd: (BASE_SPEED + score * 0.004) * 0.85,
+      wobAmp:0, wobFreq:0, wobOff:Math.random()*Math.PI*2
+    });
+    return;
+  }
+  const t = OBS_TYPES[Math.floor(Math.random() * OBS_TYPES.length)];
+  const minY = SEA_TOP + t.h / 2 + 8;
+  const maxY = CH - t.h / 2 - 8;
+  obstacles.push({
+    type:'obs', emoji:t.emoji, x:CW + 30,
+    y: minY + Math.random() * (maxY - minY),
+    w: t.w, h: t.h,
+    spd: (BASE_SPEED + score * 0.004) * t.spd,
+    wobAmp: t.wob, wobFreq:0.04, wobOff:Math.random()*Math.PI*2
+  });
+}
+
+// ── 리셋 ──────────────────────────────────────────────────────
+function resetGame() {
+  score = 0; frame = 0;
+  jy = SEA_TOP + SEA_H * 0.45;
+  jvy = 0; jAnimFrame = 0; jLegPhase = 0;
+  bgX = 0; bgX2 = CW;
+  obstacles = []; lastObs = 0;
+  buffActive = false; buffTimer = 0;
+  particles = [];
+  waveOff = 0;
+  initBubbles();
+  document.getElementById('buffTimer').style.display = 'none';
+}
+
+// ── TAP 처리 ─────────────────────────────────────────────────
+function doTap(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  if (state !== 'playing') return;
+  if (!buffActive) {
+    jvy = JUMP_VEL;
+    spawnJumpParticles();
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); doTap(null); }
+});
+
+// ── 파티클 ───────────────────────────────────────────────────
+function spawnJumpParticles() {
+  for (let i = 0; i < 7; i++) {
+    particles.push({
+      x: 80, y: jy,
+      vx: (Math.random() - 0.7) * 3,
+      vy: (Math.random() - 0.5) * 3,
+      life: 1, r: 3 + Math.random() * 3,
+      color: `hsl(${190 + Math.random()*40},80%,65%)`
+    });
+  }
+}
+
+function spawnBuffParticles() {
+  for (let i = 0; i < 16; i++) {
+    const a = (Math.PI * 2 / 16) * i;
+    particles.push({
+      x: 80, y: jy,
+      vx: Math.cos(a) * (3 + Math.random() * 2),
+      vy: Math.sin(a) * (3 + Math.random() * 2),
+      life: 1, r: 4 + Math.random() * 4,
+      color: `hsl(${40 + Math.random()*30},100%,65%)`
+    });
+  }
+}
+
+// ── 그리기 함수들 ─────────────────────────────────────────────
+
+function drawSky() {
+  const grd = ctx.createLinearGradient(0, 0, 0, SKY_H);
+  grd.addColorStop(0, '#87CEEB');
+  grd.addColorStop(1, '#b0e8ff');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, CW, SKY_H);
+
+  // 작은 구름들
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  [[60,20,22],[160,14,16],[300,22,20],[360,12,14]].forEach(([x,y,r]) => {
+    ctx.beginPath(); ctx.arc(x + bgX * 0.08 % CW, y, r, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + bgX * 0.08 % CW + r*0.8, y-r*0.3, r*0.7, 0, Math.PI*2); ctx.fill();
+  });
+}
+
+function drawSea() {
+  // 바다 배경
+  const g2 = ctx.createLinearGradient(0, SEA_TOP, 0, CH);
+  g2.addColorStop(0, '#006994');
+  g2.addColorStop(0.5, '#004d6e');
+  g2.addColorStop(1, '#002233');
+  ctx.fillStyle = g2;
+  ctx.fillRect(0, SEA_TOP, CW, SEA_H);
+
+  // 배경 산호/해초 (스크롤)
+  drawSeaDecor();
+
+  // 버블
+  ctx.save();
+  bubbles.forEach(b => {
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(150,220,255,0.25)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(150,220,255,0.5)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+    b.y -= b.spd;
+    if (b.y < SEA_TOP) { b.y = CH; b.x = Math.random() * CW; }
+  });
+  ctx.restore();
+
+  // 수면 웨이브
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let x = 0; x <= CW; x += 4) {
+    const y = SEA_TOP + Math.sin((x + waveOff) * 0.05) * 4;
+    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+const decorItems = [];
+function initDecor() {
+  decorItems.length = 0;
+  const emojis = ['🪸','🌿','🪨','🐚','🌾'];
+  for (let i = 0; i < 12; i++) {
+    decorItems.push({
+      e: emojis[Math.floor(Math.random() * emojis.length)],
+      x: Math.random() * CW * 2,
+      y: CH - 10 - Math.random() * 30,
+      s: 0.7 + Math.random() * 0.5
+    });
+  }
+}
+
+function drawSeaDecor() {
+  const spd = buffActive ? BASE_SPEED * 2.5 : BASE_SPEED + score * 0.004;
+  ctx.save();
+  ctx.font = '22px sans-serif';
+  ctx.textBaseline = 'bottom';
+  decorItems.forEach(d => {
+    ctx.save();
+    ctx.translate(d.x - (bgX * spd / BASE_SPEED) % (CW * 2), d.y);
+    ctx.scale(d.s, d.s);
+    ctx.fillText(d.e, 0, 0);
+    ctx.restore();
+    // 순환
+    const nx = d.x - spd * 0.4;
+    d.x = nx < -40 ? d.x + CW * 2 + 40 : d.x;
+  });
+  ctx.restore();
+}
+
+function drawJinsuni() {
+  const x = 80;
+  const y = jy;
+  jAnimFrame++;
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // 버프 중 - 무지개 후광
+  if (buffActive) {
+    const pulse = 0.6 + 0.4 * Math.sin(buffFlashFrame * 0.3);
+    ctx.shadowColor = `hsl(${buffFlashFrame * 6 % 360},100%,60%)`;
+    ctx.shadowBlur = 20 * pulse;
+  }
+
+  // 몸통 (수영복 입은 귀여운 캐릭터)
+  // 몸 - 살색 타원
+  ctx.fillStyle = '#FDBCB4';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 18, 22, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 수영복 (파란색)
+  ctx.fillStyle = '#1976D2';
+  ctx.beginPath();
+  ctx.ellipse(0, 8, 14, 12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 수영복 어깨끈
+  ctx.strokeStyle = '#1565C0';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-8,-5); ctx.lineTo(-4,-14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8,-5); ctx.lineTo(4,-14); ctx.stroke();
+
+  // 머리
+  ctx.fillStyle = '#FDBCB4';
+  ctx.beginPath();
+  ctx.ellipse(0, -20, 14, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 머리카락 (검정 땋은 머리 - 수영캡 느낌)
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.ellipse(0, -26, 13, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 수영 고글
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(-5,-20,5,4,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(5,-20,5,4,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(0,-20); ctx.lineTo(0,-20); ctx.stroke();
+  ctx.fillStyle = '#5BB'; // 고글 렌즈
+  ctx.beginPath(); ctx.ellipse(-5,-20,3.5,2.8,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(5,-20,3.5,2.8,0,0,Math.PI*2); ctx.fill();
+  // 눈 하이라이트
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-4,-21,1,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6,-21,1,0,Math.PI*2); ctx.fill();
+  // 입 (귀엽게)
+  ctx.fillStyle = '#e07070';
+  ctx.beginPath(); ctx.arc(0,-17,3,0,Math.PI); ctx.fill();
+
+  // 팔 (허우적대는 모션)
+  const armSwing = Math.sin(jAnimFrame * 0.25) * 28;
+  ctx.strokeStyle = '#FDBCB4'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  // 왼팔
+  ctx.beginPath();
+  ctx.moveTo(-14, -5);
+  ctx.quadraticCurveTo(-28, -5 + armSwing * 0.5, -32, 5 + armSwing);
+  ctx.stroke();
+  // 오른팔 (반대위상)
+  ctx.beginPath();
+  ctx.moveTo(14, -5);
+  ctx.quadraticCurveTo(28, -5 - armSwing * 0.5, 30, 5 - armSwing * 0.7);
+  ctx.stroke();
+
+  // 손
+  ctx.fillStyle = '#FDBCB4';
+  ctx.beginPath(); ctx.arc(-32, 5 + armSwing, 5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(30, 5 - armSwing * 0.7, 5, 0, Math.PI*2); ctx.fill();
+
+  // 다리 (발차기 모션)
+  const legKick = Math.sin(jAnimFrame * 0.3) * 18;
+  ctx.strokeStyle = '#FDBCB4'; ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.moveTo(-6, 18); ctx.lineTo(-10, 30 + legKick); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6, 18); ctx.lineTo(10, 30 - legKick); ctx.stroke();
+  // 발
+  ctx.fillStyle = '#FDBCB4';
+  ctx.beginPath(); ctx.ellipse(-12, 32 + legKick, 7, 4, -0.3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(12, 32 - legKick, 7, 4, 0.3, 0, Math.PI*2); ctx.fill();
+
+  // 물방울 이펙트
+  if (jAnimFrame % 8 < 4) {
+    ctx.fillStyle = 'rgba(100,200,255,0.5)';
+    ctx.beginPath(); ctx.ellipse(-20, 10, 4, 3, 0.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(22, 8, 3, 2, -0.3, 0, Math.PI*2); ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawObstacles() {
+  ctx.font = '36px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  obstacles.forEach(ob => {
+    if (ob.type === 'buff') {
+      // 돼지 이미지
+      ctx.save();
+      const pulse = 1 + 0.08 * Math.sin(frame * 0.15);
+      ctx.translate(ob.x, ob.y);
+      ctx.scale(pulse, pulse);
+      // 후광
+      ctx.shadowColor = '#ffe082';
+      ctx.shadowBlur = 14;
+      try {
+        ctx.drawImage(pigImg, -25, -25, 50, 50);
+      } catch(e) {
+        ctx.fillText('🐷', 0, 0);
+      }
+      ctx.restore();
+      // 별 이펙트
+      ctx.fillStyle = '#ffe082';
+      ctx.font = '14px sans-serif';
+      ctx.fillText('⭐', ob.x + 28 * Math.sin(frame*0.1), ob.y - 28);
+    } else {
+      ctx.save();
+      ctx.font = '34px sans-serif';
+      ctx.fillText(ob.emoji, ob.x, ob.y + ob.wobAmp * Math.sin(frame * ob.wobFreq + ob.wobOff));
+      ctx.restore();
+    }
+  });
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+}
+
+function drawHUD() {
+  // 바닥 위험선
+  const dangerY = CH - 24;
+  ctx.fillStyle = 'rgba(255,50,50,0.15)';
+  ctx.fillRect(0, dangerY, CW, 24);
+  ctx.strokeStyle = 'rgba(255,80,80,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath(); ctx.moveTo(0, dangerY); ctx.lineTo(CW, dangerY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillStyle = 'rgba(255,100,100,0.8)';
+  ctx.textAlign = 'center';
+  ctx.fillText('⚠ 바닥', CW/2, CH - 8);
+
+  // 버프 오라
+  if (buffActive) {
+    buffFlashFrame++;
+    const alpha = 0.3 + 0.2 * Math.sin(buffFlashFrame * 0.2);
+    ctx.save();
+    ctx.fillStyle = `hsla(${buffFlashFrame * 5 % 360},80%,60%,${alpha})`;
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.restore();
+  }
+}
+
+// ── 업데이트 ──────────────────────────────────────────────────
+function update() {
+  frame++;
+  waveOff += 1.5;
+
+  const speed = buffActive ? BASE_SPEED * 2.5 + score * 0.006
+                           : BASE_SPEED + score * 0.004;
+
+  // 거리 증가
+  if (buffActive) score += 0.18;
+  else score += 0.06;
+  document.getElementById('scoreDisp').textContent = Math.floor(score);
+
+  // 버프 타이머
+  if (buffActive) {
+    buffTimer--;
+    const secs = Math.ceil(buffTimer / 60);
+    document.getElementById('buffSec').textContent = secs;
+    if (buffTimer <= 0) {
+      buffActive = false;
+      document.getElementById('buffTimer').style.display = 'none';
+      jvy = 0;
+    }
+  }
+
+  // 진순이 물리
+  if (!buffActive) {
+    jvy += GRAVITY;
+    jy += jvy;
+    // 수면 제한
+    if (jy < SEA_TOP + 28) { jy = SEA_TOP + 28; jvy = 0; }
+    // 바닥
+    if (jy > CH - 24) { die(); return; }
+  } else {
+    // 버프 중 일직선
+    jy = SEA_TOP + SEA_H * 0.4;
+    jvy = 0;
+  }
+
+  // 배경 스크롤
+  bgX += speed * 0.5;
+
+  // 장애물 이동
+  obstacles.forEach(ob => {
+    ob.x -= ob.spd * (buffActive ? 2 : 1);
+  });
+  obstacles = obstacles.filter(ob => ob.x > -60);
+
+  // 장애물 스폰
+  const spawnGap = Math.max(80, 160 - score * 0.3);
+  if (frame - lastObs > spawnGap) {
+    spawnObs(); lastObs = frame;
+  }
+
+  // 충돌
+  const jLeft = 80 - 16, jRight = 80 + 16;
+  const jTop = jy - 30, jBot = jy + 32;
+  for (let ob of obstacles) {
+    const oLeft = ob.x - ob.w/2 + 8;
+    const oRight = ob.x + ob.w/2 - 8;
+    const oTop = ob.y - ob.h/2 + 6;
+    const oBot = ob.y + ob.h/2 - 6;
+    if (jRight > oLeft && jLeft < oRight && jBot > oTop && jTop < oBot) {
+      if (ob.type === 'buff') {
+        // 버프 획득
+        buffActive = true;
+        buffTimer = 180; // 3초
+        obstacles = obstacles.filter(o => o !== ob);
+        spawnBuffParticles();
+        document.getElementById('buffTimer').style.display = 'block';
+        document.getElementById('buffSec').textContent = '3';
+        break;
+      } else if (!buffActive) {
+        die(); return;
+      }
+    }
+  }
+
+  // 파티클 업데이트
+  particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life -= 0.05; });
+  particles = particles.filter(p => p.life > 0);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, CW, CH);
+  drawSky();
+  drawSea();
+  drawObstacles();
+  drawJinsuni();
+  drawParticles();
+  drawHUD();
+}
+
+function loop() {
+  if (state !== 'playing') return;
+  update();
+  draw();
+  raf = requestAnimationFrame(loop);
+}
+
+function die() {
+  state = 'dead';
+  cancelAnimationFrame(raf);
+  if (score > best) best = Math.floor(score);
+  document.getElementById('bestDisp').textContent = best;
+  document.getElementById('overScore').textContent = Math.floor(score) + 'm';
+  document.getElementById('overBest').textContent = '최고기록: ' + best + 'm';
+  document.getElementById('over').style.display = 'flex';
+}
+
+// ── 게임 시작/재시작 ──────────────────────────────────────────
+function startGame() {
+  document.getElementById('intro').style.display = 'none';
+  document.getElementById('gameWrap').style.display = 'flex';
+  initDecor();
+  resetGame();
+  state = 'playing';
+  loop();
+}
+
+function restartGame() {
+  document.getElementById('over').style.display = 'none';
+  initDecor();
+  resetGame();
+  state = 'playing';
+  loop();
+}
+
+// 배지에 돼지 이미지 표시
+pigImg.onload = function() {
+  const badge = document.getElementById('pigBadge');
+  const miniCanvas = document.createElement('canvas');
+  miniCanvas.width = 36; miniCanvas.height = 36;
+  const mctx = miniCanvas.getContext('2d');
+  mctx.drawImage(pigImg, 0, 0, 36, 36);
+  badge.innerHTML = '';
+  badge.appendChild(miniCanvas);
+};
+</script>
+</body>
+</html>
